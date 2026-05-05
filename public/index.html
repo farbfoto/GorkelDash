@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GorkelDash</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◆</span>
+    <h1>GorkelDash</h1>
+  </div>
+  <div class="meta">
+    <span id="today-date"></span>
+    <span class="dot"></span>
+    <span>Aktualisiert: <span id="last-updated">–</span></span>
+    <button id="refresh-btn" title="Jetzt aktualisieren">↻</button>
+  </div>
+</header>
+
+<section id="tech-briefing" class="hero" hidden>
+  <div class="hero-head">
+    <h2>📡 Tech Briefing <span id="tb-date" class="hero-date"></span></h2>
+    <a id="tb-link" class="obs-link" href="#" title="In Obsidian öffnen">↗ Obsidian</a>
+  </div>
+  <div id="tb-summary" class="hero-summary"></div>
+  <div id="tb-stories" class="hero-stories"></div>
+  <details id="tb-mentions-wrap" class="hero-mentions" hidden>
+    <summary>Erwähnenswert <span id="tb-mention-count" class="count"></span></summary>
+    <ul id="tb-mentions"></ul>
+  </details>
+</section>
+
+<main class="grid">
+
+  <section class="col col-today">
+    <div id="weather-pill" class="weather-pill hidden"></div>
+    <h2 class="col-title">Heute</h2>
+    <div id="overview-callout" class="callout hidden"></div>
+
+    <div class="card" id="health-card" hidden>
+      <h3>💪 Health &amp; Movement</h3>
+      <div id="health-body" class="card-body"></div>
+    </div>
+
+    <div class="card" id="appointments-card" hidden>
+      <h3>📅 Termine heute</h3>
+      <ol id="appointments" class="timeline"></ol>
+    </div>
+
+    <div class="card" id="briefing-tasks-card" hidden>
+      <h3>📋 Briefing Tasks</h3>
+      <ul id="briefing-tasks" class="tasklist"></ul>
+    </div>
+
+    <div class="card" id="triage-card" hidden>
+      <h3>📧 Email Triage</h3>
+      <ol id="triage-list" class="triage-list"></ol>
+      <div id="triage-actions-wrap" hidden>
+        <h4 class="sub-title">Sofort-Actions</h4>
+        <ul id="triage-actions" class="tasklist"></ul>
+      </div>
+    </div>
+
+    <div class="card" id="notes-card">
+      <h3>📝 Notes</h3>
+      <div id="notes-body"></div>
+    </div>
+  </section>
+
+  <section class="col col-tasks">
+    <h2 class="col-title">Alle Todos</h2>
+    <div class="card" id="all-todos-card">
+      <h3>📋 Konsolidierte Tasks <span id="all-todo-count" class="count">0</span></h3>
+      <div class="todo-filters">
+        <button class="todo-filter active" data-filter="open">Offen <span id="filter-open-count">0</span></button>
+        <button class="todo-filter" data-filter="done">Erledigt <span id="filter-done-count">0</span></button>
+        <button class="todo-filter" data-filter="all">Alle</button>
+      </div>
+      <ul id="all-todos-list" class="todo-list"></ul>
+    </div>
+  </section>
+
+  <section class="col col-stats">
+    <h2 class="col-title">Produktivität</h2>
+
+    <div class="card">
+      <h3>🔥 Streak</h3>
+      <div class="streak"><span id="streak-count">0</span><small>Tage in Folge</small></div>
+    </div>
+
+    <div class="card">
+      <h3>✅ Completion · 7T</h3>
+      <div class="donut-wrap">
+        <svg id="donut" viewBox="0 0 120 120" width="120" height="120">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#2a2d4a" stroke-width="14"/>
+          <circle id="donut-arc" cx="60" cy="60" r="48" fill="none" stroke="#5eead4" stroke-width="14"
+            stroke-dasharray="0 999" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <text id="donut-label" x="60" y="66" text-anchor="middle" fill="#e4e4e7" font-size="22" font-weight="600">0%</text>
+        </svg>
+        <div class="task-stat">
+          <div><span id="stat-done">0</span> erledigt</div>
+          <div><span id="stat-open">0</span> offen</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🗺️ Aktivität · 14T</h3>
+      <div id="heatmap" class="heatmap"></div>
+      <div class="legend">
+        <span class="hm-swatch hm-empty"></span>leer
+        <span class="hm-swatch hm-light"></span>kurz
+        <span class="hm-swatch hm-full"></span>voll
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📁 Projekte diese Woche</h3>
+      <div class="streak"><span id="project-count">0</span><small>erwähnte Notes</small></div>
+      <ul id="project-list" class="mini-list"></ul>
+    </div>
+  </section>
+
+</main>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
