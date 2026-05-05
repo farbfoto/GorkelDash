@@ -135,6 +135,7 @@ body {
 .timeline .p-neutral { background: var(--neutral); }
 .timeline li.now { background: rgba(233, 69, 96, 0.08); border-radius: 6px; }
 .timeline li.now .title { color: var(--accent); }
+.badge-tent { font-size: 10px; font-weight: 500; color: var(--text-dim); border: 1px solid var(--grey); border-radius: 3px; padding: 0 4px; margin-left: 5px; vertical-align: middle; }
 .appt-tasks { margin: 6px 0 0 0; padding: 0; list-style: none; }
 .appt-tasks li {
   padding: 3px 0 3px 18px; border: none; font-size: 12px; color: var(--text-dim);

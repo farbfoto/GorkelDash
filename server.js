@@ -207,6 +207,65 @@ function parseHealthMovement(md) {
   return renderMarkdown(m[1].trim());
 }
 
+// ---------- Daily Agenda Parser ----------
+
+function parseAgenda(md) {
+  if (!md) return { weather: '', focus: '', appointments: [] };
+  const { body } = stripFrontmatter(md);
+  const m = body.match(/#\s+Daily Agenda[^\n]*\n([\s\S]*?)(?=\n##\s+Optionale|\n##\s+Freie|\n##\s+Offene|\n#\s+Review|\n#\s+Notes|$)/);
+  if (!m) return { weather: '', focus: '', appointments: [] };
+
+  const lines = m[1].split('\n');
+
+  // First two blockquotes: weather + focus
+  let weather = '', focus = '';
+  const bqs = [];
+  for (const line of lines) {
+    const bq = line.match(/^>\s?(.*)$/);
+    if (bq && bq[1].trim()) bqs.push(bq[1].replace(/\*\*/g, '').trim());
+  }
+  if (bqs[0]) weather = bqs[0];
+  if (bqs[1]) focus = bqs[1].replace(/^Fokus:\s*/, '').trim();
+
+  const appointments = [];
+  let current = null;
+
+  for (const line of lines) {
+    const h = line.match(/^###\s+(.+)$/);
+    if (h) {
+      if (current) appointments.push(current);
+      const header = h[1];
+      const isConflict = /⚠️|KONFLIKT/u.test(header);
+      const tentative = /\*\([^)]+\)\*/.test(header);
+      const timeMatch = header.match(/(\d{1,2}:\d{2})/);
+      const time = timeMatch ? timeMatch[1] : '';
+      const prioMatch = header.match(/·\s*([ABC])(?:\s*\*\([^)]+\)\*\s*)?$/);
+      let priority = 'neutral';
+      if (prioMatch) {
+        if (prioMatch[1] === 'A') priority = 'red';
+        else if (prioMatch[1] === 'B') priority = 'yellow';
+        else if (prioMatch[1] === 'C') priority = 'grey';
+      }
+      const title = header
+        .replace(/⚠️\s*/u, '')
+        .replace(/\d{1,2}:\d{2}--\d{1,2}:\d{2}\s*·\s*/, '')
+        .replace(/\d{1,2}:\d{2}\s*·\s*/, '')
+        .replace(/\s*·\s*[ABC](?:\s*\*\([^)]+\)\*\s*)?$/, '')
+        .replace(/\*\([^)]+\)\*\s*$/, '')
+        .replace(/^\s*·\s*/, '')
+        .trim();
+      current = { time, title, priority, tentative, isConflict, location: '', heading: header };
+      continue;
+    }
+    if (!current) continue;
+    const locM = line.match(/\*\*Ort:\*\*\s*([^|*\n]+)/);
+    if (locM) current.location = locM[1].trim();
+  }
+  if (current) appointments.push(current);
+
+  return { weather, focus, appointments };
+}
+
 // ---------- Daily Briefing Parser ----------
 
 function parseBriefing(md) {
@@ -616,6 +675,7 @@ app.get('/api/today', (req, res) => {
   }
   if (!md) return res.json({ date: today, fallback: true, sections: [], healthMovement: '', empty: true, url: obsidianUrl(`${today}.md`) });
   const { body } = stripFrontmatter(md);
+  const agenda = parseAgenda(md);
   const sections = parseSections(body).map(s => ({ ...s, url: obsidianUrl(filename, s.title) }));
   res.json({
     date,
@@ -625,6 +685,12 @@ app.get('/api/today', (req, res) => {
     healthUrl: obsidianUrl(filename, 'Health & Movement'),
     healthMovement: parseHealthMovement(body),
     sections,
+    weather: agenda.weather,
+    focus: agenda.focus,
+    appointments: agenda.appointments.map(a => ({
+      ...a,
+      url: obsidianUrl(filename, a.heading),
+    })),
   });
 });
 

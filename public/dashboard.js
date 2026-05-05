@@ -24,6 +24,54 @@ async function loadToday() {
   const notesBody = document.getElementById('notes-body');
   const healthCard = document.getElementById('health-card');
   const healthBody = document.getElementById('health-body');
+  const weather = document.getElementById('weather-pill');
+  const overview = document.getElementById('overview-callout');
+  const apptCard = document.getElementById('appointments-card');
+  const apptList = document.getElementById('appointments');
+
+  // Weather + focus from Daily Agenda
+  if (data.weather) {
+    weather.textContent = data.weather;
+    weather.classList.remove('hidden');
+  } else {
+    weather.classList.add('hidden');
+  }
+  if (data.focus) {
+    overview.textContent = data.focus;
+    overview.classList.remove('hidden');
+  } else {
+    overview.classList.add('hidden');
+  }
+
+  // Appointments from Daily Agenda
+  if (data.appointments && data.appointments.length) {
+    apptCard.hidden = false;
+    apptList.innerHTML = '';
+    const now = fmtTime(new Date());
+    let upcomingFound = false;
+    data.appointments.forEach(a => {
+      const li = document.createElement('li');
+      const isNext = !upcomingFound && a.time && a.time >= now;
+      if (isNext) { li.classList.add('now'); upcomingFound = true; }
+      const prio = a.priority || 'neutral';
+      const loc = a.location ? ` <span class="loc">📍 ${escapeHtml(a.location)}</span>` : '';
+      const tent = a.tentative ? ' <span class="badge-tent">tentativ</span>' : '';
+      const prefix = a.isConflict ? '⚠️ ' : '';
+      const titleHtml = a.url
+        ? `<a class="appt-link" href="${a.url}">${prefix}${escapeHtml(a.title)}</a>`
+        : `${prefix}${escapeHtml(a.title)}`;
+      li.innerHTML = `
+        <span class="time">${a.time || '--:--'}</span>
+        <span class="pbar p-${prio}"></span>
+        <div class="title">${titleHtml}${tent}${loc}</div>`;
+      apptList.appendChild(li);
+    });
+  } else {
+    apptCard.hidden = true;
+  }
+
+  // Briefing tasks card no longer used
+  document.getElementById('briefing-tasks-card').hidden = true;
 
   if (data.empty) {
     notesBody.innerHTML = '<p style="color:var(--text-dim)">Noch kein Eintrag heute.</p>';
@@ -341,7 +389,7 @@ function truncate(s, n) {
 
 async function refreshAll() {
   document.getElementById('today-date').textContent = fmtDate(new Date());
-  await Promise.all([loadTechBriefing(), loadToday(), loadBriefing(), loadTriage(), loadTasks(), loadStats()]);
+  await Promise.all([loadTechBriefing(), loadToday(), loadTriage(), loadTasks(), loadStats()]);
   document.getElementById('last-updated').textContent = fmtTime(new Date());
 }
 
