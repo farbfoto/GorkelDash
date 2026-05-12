@@ -385,11 +385,152 @@ function truncate(s, n) {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
+// ---------- Tomorrow View ----------
+
+let _activeTab = 'today';
+
+function tomorrowDateStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderTomorrowAppointments(appointments, listEl) {
+  listEl.innerHTML = '';
+  appointments.forEach(a => {
+    const li = document.createElement('li');
+    const prio = a.priority || 'neutral';
+    const loc = a.location ? ` <span class="loc">📍 ${escapeHtml(a.location)}</span>` : '';
+    const tent = a.tentative ? ' <span class="badge-tent">tentativ</span>' : '';
+    const prefix = a.isConflict ? '⚠️ ' : '';
+    const titleHtml = a.url
+      ? `<a class="appt-link" href="${a.url}">${prefix}${escapeHtml(a.title)}</a>`
+      : `${prefix}${escapeHtml(a.title)}`;
+    li.innerHTML = `
+      <span class="time">${a.time || '--:--'}</span>
+      <span class="pbar p-${prio}"></span>
+      <div class="title">${titleHtml}${tent}${loc}</div>`;
+    listEl.appendChild(li);
+  });
+}
+
+async function loadTomorrow() {
+  const date = tomorrowDateStr();
+  const data = await fetchJSON(`/api/day?date=${date}`);
+  const tabBtn = document.getElementById('tab-tomorrow');
+
+  if (!data.exists) {
+    tabBtn.disabled = true;
+    tabBtn.title = 'Noch keine Note für morgen';
+    document.getElementById('tmr-empty').hidden = false;
+    document.getElementById('tmr-appointments-card').hidden = true;
+    document.getElementById('tmr-notes-card').hidden = true;
+    document.getElementById('tmr-health-card').hidden = true;
+    document.getElementById('tmr-weather').classList.add('hidden');
+    document.getElementById('tmr-focus').classList.add('hidden');
+    return;
+  }
+
+  tabBtn.disabled = false;
+  tabBtn.title = '';
+  document.getElementById('tmr-empty').hidden = true;
+
+  // Date label
+  const d = new Date(date + 'T00:00:00');
+  document.getElementById('tmr-date').textContent = fmtDate(d);
+  const obsLink = document.getElementById('tmr-obs-link');
+  if (obsLink && data.url) obsLink.href = data.url;
+
+  // Weather
+  const weatherEl = document.getElementById('tmr-weather');
+  if (data.weather) { weatherEl.textContent = data.weather; weatherEl.classList.remove('hidden'); }
+  else weatherEl.classList.add('hidden');
+
+  // Focus
+  const focusEl = document.getElementById('tmr-focus');
+  if (data.focus) { focusEl.textContent = data.focus; focusEl.classList.remove('hidden'); }
+  else focusEl.classList.add('hidden');
+
+  // Appointments
+  const apptCard = document.getElementById('tmr-appointments-card');
+  const apptList = document.getElementById('tmr-appointments');
+  if (data.appointments && data.appointments.length) {
+    apptCard.hidden = false;
+    renderTomorrowAppointments(data.appointments, apptList);
+  } else {
+    apptCard.hidden = true;
+  }
+
+  // Notes sections
+  const notesCard = document.getElementById('tmr-notes-card');
+  const notesBody = document.getElementById('tmr-notes-body');
+  if (data.sections && data.sections.length) {
+    notesCard.hidden = false;
+    notesBody.innerHTML = '';
+    for (const s of data.sections) {
+      const div = document.createElement('div');
+      div.className = 'note-section';
+      const link = s.url ? ` <a class="obs-link" href="${s.url}" title="In Obsidian öffnen">↗</a>` : '';
+      div.innerHTML = `<h4>${escapeHtml(s.title)}${link}</h4><div class="card-body">${s.html || '<p style="color:var(--text-dim)">—</p>'}</div>`;
+      notesBody.appendChild(div);
+    }
+  } else {
+    notesCard.hidden = true;
+  }
+
+  // Tasks
+  const tasksList = document.getElementById('tmr-tasks-list');
+  const taskCount = document.getElementById('tmr-task-count');
+  const open = data.openTasks || [];
+  taskCount.textContent = open.length;
+  if (open.length) {
+    tasksList.innerHTML = open.map(t =>
+      `<li><span style="color:var(--green);margin-right:6px">☐</span>${escapeHtml(t)}</li>`
+    ).join('');
+  } else {
+    tasksList.innerHTML = '<li style="color:var(--text-faint);padding:10px 0;font-size:12px">Keine Tasks eingetragen.</li>';
+  }
+
+  // Health & Movement
+  const healthCard = document.getElementById('tmr-health-card');
+  const healthBody = document.getElementById('tmr-health-body');
+  if (data.healthMovement && data.healthMovement.trim()) {
+    healthCard.hidden = false;
+    healthBody.innerHTML = data.healthMovement;
+  } else {
+    healthCard.hidden = true;
+  }
+}
+
+async function checkTomorrowTab() {
+  const date = tomorrowDateStr();
+  const data = await fetchJSON(`/api/day?date=${date}`);
+  const tabBtn = document.getElementById('tab-tomorrow');
+  tabBtn.disabled = !data.exists;
+  tabBtn.title = data.exists ? '' : 'Noch keine Note für morgen';
+}
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    const tab = btn.dataset.tab;
+    _activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-today').hidden = (tab !== 'today');
+    document.getElementById('view-tomorrow').hidden = (tab !== 'tomorrow');
+    if (tab === 'tomorrow') loadTomorrow();
+  });
+});
+
 // ---------- Orchestration ----------
 
 async function refreshAll() {
   document.getElementById('today-date').textContent = fmtDate(new Date());
-  await Promise.all([loadTechBriefing(), loadToday(), loadTriage(), loadTasks(), loadStats()]);
+  const base = [loadTechBriefing(), loadToday(), loadTriage(), loadTasks(), loadStats()];
+  const extra = _activeTab === 'tomorrow' ? loadTomorrow() : checkTomorrowTab();
+  await Promise.all([...base, extra]);
   document.getElementById('last-updated').textContent = fmtTime(new Date());
 }
 

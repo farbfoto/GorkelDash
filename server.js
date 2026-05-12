@@ -694,6 +694,36 @@ app.get('/api/today', (req, res) => {
   });
 });
 
+// Generic day endpoint — used for tomorrow view
+app.get('/api/day', (req, res) => {
+  const date = req.query.date;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  const filename = `${date}.md`;
+  const md = readNote(filename);
+  if (!md) return res.json({ exists: false, date, url: obsidianUrl(filename) });
+  const { body } = stripFrontmatter(md);
+  const agenda = parseAgenda(md);
+  const tasks = extractTasks(md);
+  const sections = parseSections(body).map(s => ({ ...s, url: obsidianUrl(filename, s.title) }));
+  res.json({
+    exists: true,
+    date,
+    filename,
+    url: obsidianUrl(filename),
+    weather: agenda.weather,
+    focus: agenda.focus,
+    appointments: agenda.appointments.map(a => ({
+      ...a,
+      url: obsidianUrl(filename, a.heading),
+    })),
+    openTasks: tasks.open,
+    doneTasks: tasks.done,
+    sections,
+    healthMovement: parseHealthMovement(body),
+  });
+});
+
 app.get('/api/briefing', (req, res) => {
   const date = req.query.date || dateStr(new Date());
   const filename = `daily-briefing-${date}.md`;
