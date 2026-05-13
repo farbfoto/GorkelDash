@@ -590,6 +590,45 @@ function parseTriage(md, dateDir) {
   return { groups, sofortActions, totalCount };
 }
 
+// Tasks aus individuellen Email-Notes (KRITISCH/HOCH-Notes im Inbox-Review-Ordner)
+function loadEmailNoteTasks(dateDir) {
+  const result = [];
+  let files;
+  try { files = fs.readdirSync(path.join(INBOX_DIR, dateDir)); } catch { return result; }
+
+  for (const file of files) {
+    if (!file.endsWith('.md') || file === '_index.md') continue;
+    const notePath = path.join(INBOX_DIR, dateDir, file);
+    let md;
+    try { md = fs.readFileSync(notePath, 'utf8'); } catch { continue; }
+
+    // Priority from filename: 01-kritisch-..., 03-hoch-..., etc.
+    const prefixMatch = file.match(/^\d+-(kritisch|hoch|mittel|niedrig)-/i);
+    const level = prefixMatch ? prefixMatch[1].toLowerCase() : '';
+
+    // Title: H1 with priority prefix stripped
+    const h1Match = md.match(/^#\s+([^\n]+)/m);
+    let title = h1Match ? h1Match[1] : file.replace(/\.md$/, '');
+    title = title.replace(/^\s*(KRITISCH|HOCH|MITTEL|NIEDRIG)\s*[·:]\s*/i, '').trim();
+
+    const noteUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${file}`);
+
+    // Extract tasks (open + done)
+    for (const line of md.split('\n')) {
+      const m = line.match(/^\s*[-*]\s+\[([ x])\]\s+(.+)$/);
+      if (!m) continue;
+      result.push({
+        text: cleanTaskText(m[2]),
+        done: m[1] === 'x',
+        level,
+        title,
+        url: noteUrl,
+      });
+    }
+  }
+  return result;
+}
+
 // ---------- Weekly Review Tasks (letzte 3) ----------
 
 function listWeeklyReviews(limit = 3) {
@@ -902,6 +941,24 @@ app.get('/api/all-todos', (req, res) => {
       text, status: 'open', sortKey: d + 't', dateLabel: shortDate(d),
       origin: 'Triage', originColor: 'orange', url: triageUrl,
     }));
+  }
+
+  // 3b. Tasks aus individuellen Email-Notes (KRITISCH/HOCH)
+  for (const d of daysBack(2)) {
+    const emailTasks = loadEmailNoteTasks(d);
+    emailTasks.forEach(t => {
+      const shortTitle = t.title.length > 30 ? t.title.slice(0, 30) + '…' : t.title;
+      const color = t.level === 'kritisch' ? 'red' : 'orange';
+      items.push({
+        text: t.text,
+        status: t.done ? 'done' : 'open',
+        sortKey: d + 'e',
+        dateLabel: shortDate(d),
+        origin: `Email · ${shortTitle}`,
+        originColor: color,
+        url: t.url,
+      });
+    });
   }
 
   // 4. Weekly Briefing

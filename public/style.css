@@ -771,6 +771,7 @@ body {
 .origin-blue   { background: rgba(10,132,255,0.7); }
 .origin-cyan   { background: rgba(90,200,250,0.6); color: #000; }
 .origin-orange { background: rgba(255,159,10,0.75); color: #000; }
+.origin-red    { background: rgba(255,69,58,0.78); }
 .origin-purple { background: rgba(191,90,242,0.7); }
 .origin-pink   { background: rgba(255,55,95,0.7); }
 .origin-grey   { background: rgba(255,255,255,0.15); }
