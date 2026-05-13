@@ -55,26 +55,7 @@ async function loadToday() {
   // Appointments from Daily Agenda
   if (data.appointments && data.appointments.length) {
     apptCard.hidden = false;
-    apptList.innerHTML = '';
-    const now = fmtTime(new Date());
-    let upcomingFound = false;
-    data.appointments.forEach(a => {
-      const li = document.createElement('li');
-      const isNext = !upcomingFound && a.time && a.time >= now;
-      if (isNext) { li.classList.add('now'); upcomingFound = true; }
-      const prio = a.priority || 'neutral';
-      const loc = a.location ? ` <span class="loc">📍 ${escapeHtml(a.location)}</span>` : '';
-      const tent = a.tentative ? ' <span class="badge-tent">tentativ</span>' : '';
-      const prefix = a.isConflict ? '⚠️ ' : '';
-      const titleHtml = a.url
-        ? `<a class="appt-link" href="${a.url}">${prefix}${escapeHtml(a.title)}</a>`
-        : `${prefix}${escapeHtml(a.title)}`;
-      li.innerHTML = `
-        <span class="time">${a.time || '--:--'}</span>
-        <span class="pbar p-${prio}"></span>
-        <div class="title">${titleHtml}${tent}${loc}</div>`;
-      apptList.appendChild(li);
-    });
+    renderAppointments(data.appointments, apptList, data.date || localDateStr(new Date()), true);
   } else {
     apptCard.hidden = true;
   }
@@ -394,20 +375,25 @@ function truncate(s, n) {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
-// ---------- Tomorrow View ----------
-
-let _activeTab = 'today';
-
-function tomorrowDateStr() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return localDateStr(d);
+function outlookDayUrl(date) {
+  // Outlook Web day view for a specific date
+  // Format supported by Microsoft 365 / OWA
+  return `https://outlook.office.com/calendar/view/day?startdt=${date}T00:00:00`;
 }
 
-function renderTomorrowAppointments(appointments, listEl) {
+// Gemeinsame Funktion für Termin-Rendering (Heute + Morgen)
+function renderAppointments(appointments, listEl, date, highlightCurrent = false) {
   listEl.innerHTML = '';
+  const now = fmtTime(new Date());
+  let upcomingFound = false;
+  const calUrl = outlookDayUrl(date);
+
   appointments.forEach(a => {
     const li = document.createElement('li');
+    if (highlightCurrent) {
+      const isNext = !upcomingFound && a.time && a.time >= now;
+      if (isNext) { li.classList.add('now'); upcomingFound = true; }
+    }
     const prio = a.priority || 'neutral';
     const loc = a.location ? ` <span class="loc">📍 ${escapeHtml(a.location)}</span>` : '';
     const tent = a.tentative ? ' <span class="badge-tent">tentativ</span>' : '';
@@ -418,9 +404,24 @@ function renderTomorrowAppointments(appointments, listEl) {
     li.innerHTML = `
       <span class="time">${a.time || '--:--'}</span>
       <span class="pbar p-${prio}"></span>
-      <div class="title">${titleHtml}${tent}${loc}</div>`;
+      <div class="title">${titleHtml}${tent}${loc}</div>
+      <a class="cal-link" href="${calUrl}" target="_blank" title="In Outlook öffnen">📅</a>`;
     listEl.appendChild(li);
   });
+}
+
+// ---------- Tomorrow View ----------
+
+let _activeTab = 'today';
+
+function tomorrowDateStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return localDateStr(d);
+}
+
+function renderTomorrowAppointments(appointments, listEl, date) {
+  renderAppointments(appointments, listEl, date, false);
 }
 
 async function loadTomorrow() {
@@ -465,7 +466,7 @@ async function loadTomorrow() {
   const apptList = document.getElementById('tmr-appointments');
   if (data.appointments && data.appointments.length) {
     apptCard.hidden = false;
-    renderTomorrowAppointments(data.appointments, apptList);
+    renderTomorrowAppointments(data.appointments, apptList, date);
   } else {
     apptCard.hidden = true;
   }

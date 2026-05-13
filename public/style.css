@@ -309,6 +309,19 @@ body {
 .timeline li.now .time  { color: var(--blue); font-weight: 600; }
 .timeline li.now .title { color: var(--text); font-weight: 600; }
 
+.cal-link {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  opacity: 0.25;
+  text-decoration: none;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.cal-link:hover { opacity: 0.9; }
+
 .badge-tent {
   display: inline-block;
   font-size: 10px;
