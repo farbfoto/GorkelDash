@@ -793,46 +793,169 @@ body {
 .todo-empty { color: var(--text-dim); padding: 16px; text-align: center; font-size: 12px; }
 
 /* ============================================================
-   Email Triage
+   Email Triage — Priority Groups
    ============================================================ */
-.triage-list { list-style: none; }
+.triage-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.triage-group {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.triage-group:first-child { border-top: none; padding-top: 0; }
+
+.triage-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  cursor: default;
+  list-style: none;
+}
+.triage-group-header::-webkit-details-marker { display: none; }
+details.triage-group > summary.triage-group-header {
+  cursor: pointer;
+  user-select: none;
+}
+details.triage-group > summary.triage-group-header::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-faint);
+  transition: transform 0.15s;
+}
+details.triage-group[open] > summary.triage-group-header::after {
+  transform: rotate(90deg);
+}
+
+.triage-group.level-kritisch .triage-group-header { color: var(--red); }
+.triage-group.level-hoch     .triage-group-header { color: var(--orange); }
+
+.prio-emoji  { font-size: 13px; }
+.prio-label  { font-size: 11px; }
+.prio-count {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  color: var(--text-dim);
+  padding: 1px 7px;
+  border-radius: 10px;
+  letter-spacing: 0;
+}
+
+.triage-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .triage-item {
   display: grid;
-  grid-template-columns: 52px 1fr;
-  gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   align-items: start;
 }
-.triage-item:first-child { border-top: none; }
-.triage-prio {
-  font-size: 9px;
+.triage-item.lvl-kritisch { border-left: 3px solid var(--red); }
+.triage-item.lvl-hoch     { border-left: 3px solid var(--orange); }
+.triage-item.lvl-mittel,
+.triage-item.lvl-niedrig {
+  background: transparent;
+  padding: 4px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  grid-template-columns: 1fr;
+}
+.triage-items > .triage-item.lvl-mittel:last-child,
+.triage-items > .triage-item.lvl-niedrig:last-child { border-bottom: none; }
+
+.triage-num {
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-align: center;
-  padding: 3px 6px;
-  border-radius: 5px;
-  color: #fff;
-  text-transform: uppercase;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
 }
-.triage-item.prio-high   .triage-prio { background: var(--red); }
-.triage-item.prio-medium .triage-prio { background: var(--orange); color: #000; }
-.triage-item.prio-low    .triage-prio { background: var(--bg-elevated); color: var(--text-dim); }
-.triage-item.prio-neutral .triage-prio { background: var(--bg-elevated); color: var(--text-faint); }
-.triage-topic  { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
-.triage-action { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
-.triage-note {
-  display: inline-block;
+.triage-item.lvl-kritisch .triage-num { color: var(--red); }
+.triage-item.lvl-hoch     .triage-num { color: var(--orange); }
+
+.triage-body { min-width: 0; }
+.triage-topic {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.35;
+  margin-bottom: 3px;
+  color: var(--text);
+}
+.triage-item.lvl-mittel .triage-topic,
+.triage-item.lvl-niedrig .triage-topic {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.triage-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+.triage-meta {
   font-size: 11px;
-  color: var(--blue);
-  border: 1px solid rgba(10,132,255,0.3);
-  border-radius: 20px;
-  padding: 2px 10px;
-  text-decoration: none;
-  transition: all 0.15s;
+  color: var(--text-faint);
+  line-height: 1.4;
+  margin-bottom: 6px;
 }
-.triage-note:hover { background: rgba(10,132,255,0.1); }
-.triage-note-plain { font-size: 11px; color: var(--text-faint); font-style: italic; }
+.triage-item.lvl-mittel .triage-meta,
+.triage-item.lvl-niedrig .triage-meta { margin-bottom: 0; }
+
+.triage-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.triage-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 14px;
+  text-decoration: none;
+  border: 1px solid;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.triage-btn-outlook {
+  color: var(--blue);
+  border-color: rgba(10,132,255,0.32);
+  background: rgba(10,132,255,0.08);
+}
+.triage-btn-outlook:hover {
+  background: rgba(10,132,255,0.18);
+  border-color: var(--blue);
+}
+.triage-btn-draft {
+  color: var(--teal);
+  border-color: rgba(90,200,250,0.3);
+}
+.triage-btn-draft:hover {
+  background: rgba(90,200,250,0.1);
+  border-color: var(--teal);
+}
 
 .sub-title {
   font-size: 11px;

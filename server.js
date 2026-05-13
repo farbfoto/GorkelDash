@@ -475,55 +475,111 @@ function parseTechBriefing(md) {
 
 // ---------- Email Triage (Inbox Reviews) ----------
 
+function cleanCellText(s) {
+  return String(s || '')
+    .replace(/\[\[([^\]]+)\]\]/g, (_, inner) => (inner.split('|')[1] || inner.split('|')[0]).trim())
+    .replace(/\*\*/g, '')
+    .replace(/^\*+|\*+$/g, '')
+    .trim();
+}
+
+function extractOutlookUrl(noteContent) {
+  if (!noteContent) return null;
+  const linksMatch = noteContent.match(/\*\*Links?:\*\*\s*([^\n]+)/i);
+  const searchIn = linksMatch ? linksMatch[1] : noteContent;
+  const urlMatch = searchIn.match(/(https:\/\/outlook\.office(?:365)?\.com\/[^\s)\]]+)/);
+  return urlMatch ? urlMatch[1] : null;
+}
+
+function parseTriageTable(tableMd, level, dateDir) {
+  const rows = tableMd.split('\n').filter(l => l.trim().startsWith('|'));
+  const items = [];
+  let headerSkipped = false;
+
+  for (const row of rows) {
+    // Separator row
+    if (/^\|[\s\-:|]+\|$/.test(row)) { headerSkipped = true; continue; }
+
+    // Protect escaped pipes inside wikilinks: \|
+    const protectedRow = row.replace(/\\\|/g, '\x00');
+    const cells = protectedRow.split('|').slice(1, -1).map(c => c.trim().replace(/\x00/g, '|'));
+    if (cells.length < 2) continue;
+
+    // Skip header (first row before separator)
+    if (!headerSkipped) continue;
+
+    const item = { level };
+
+    if (level === 'kritisch' || level === 'hoch') {
+      // | # | Note | Thema | Absender | Deadline |
+      if (cells.length < 5) continue;
+      item.num = cleanCellText(cells[0]);
+      const noteCell = cells[1] || '';
+      const wikiMatch = noteCell.match(/\[\[([^\]]+)\]\]/);
+      let titleFromAlias = '';
+      if (wikiMatch) {
+        const inner = wikiMatch[1];
+        const parts = inner.split('|');
+        const target = parts[0].trim();
+        titleFromAlias = (parts[1] || target).trim();
+        item.noteName = target;
+        item.noteUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${target}.md`);
+        item.draftUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${target}.md`, 'Antwort-Entwurf');
+        // Load individual note for Outlook URL
+        try {
+          const noteContent = fs.readFileSync(path.join(INBOX_DIR, dateDir, `${target}.md`), 'utf8');
+          item.outlookUrl = extractOutlookUrl(noteContent);
+        } catch {}
+      }
+      const thema = cleanCellText(cells[2]);
+      // Use wikilink alias as title (short, prominent), Thema as description (optional)
+      item.topic = titleFromAlias || thema;
+      item.description = (titleFromAlias && thema !== titleFromAlias) ? thema : '';
+      item.sender = cleanCellText(cells[3]);
+      item.deadline = cleanCellText(cells[4]);
+    } else if (level === 'mittel') {
+      // | Thema | Absender | Kontext |
+      if (cells.length < 2) continue;
+      item.topic = cleanCellText(cells[0]);
+      item.sender = cleanCellText(cells[1] || '');
+      item.context = cleanCellText(cells[2] || '');
+    } else if (level === 'niedrig') {
+      // | Thema | Info |
+      item.topic = cleanCellText(cells[0]);
+      item.info = cleanCellText(cells[1] || '');
+    }
+
+    if (item.topic) items.push(item);
+  }
+  return items;
+}
+
 function parseTriage(md, dateDir) {
-  if (!md) return { items: [], sofortActions: [], clusters: [] };
+  if (!md) return { groups: [], sofortActions: [], totalCount: 0 };
   const { body } = stripFrontmatter(md);
 
-  const items = [];
-  const matrixRegex = /##\s+Priorit[äa]tsmatrix[^\n]*\n([\s\S]*?)(?=\n##\s|\n---|$)/i;
-  const matrix = body.match(matrixRegex);
-  if (matrix) {
-    const rows = matrix[1].split('\n').filter(l => l.trim().startsWith('|'));
-    for (const row of rows) {
-      if (/^\|\s*#/i.test(row) || /^\|[\s\-:|]+\|$/.test(row)) continue;
-      const cells = row.split('|').map(c => c.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
-      if (cells.length < 4) continue;
+  const prioDefs = [
+    { regex: /##\s+🔴?\s*KRITISCH[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i, level: 'kritisch', emoji: '🔴', label: 'KRITISCH' },
+    { regex: /##\s+🟠?\s*HOCH[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i,     level: 'hoch',     emoji: '🟠', label: 'HOCH' },
+    { regex: /##\s+🟡?\s*MITTEL[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i,   level: 'mittel',   emoji: '🟡', label: 'MITTEL' },
+    { regex: /##\s+⚪?\s*NIEDRIG[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i,  level: 'niedrig',  emoji: '⚪', label: 'NIEDRIG' },
+  ];
 
-      const prioCell = cells[1] || '';
-      let priority = 'neutral';
-      if (/HOCH/i.test(prioCell)) priority = 'high';
-      else if (/MITTEL/i.test(prioCell)) priority = 'medium';
-      else if (/NIEDRIG/i.test(prioCell)) priority = 'low';
-
-      const topic = cells[2] || '';
-      const action = cells[3] || '';
-      const noteCell = cells[4] || '';
-
-      let noteUrl = null, noteLabel = null;
-      const wikiMatch = noteCell.match(/\[\[([^\]]+)\]\]/);
-      if (wikiMatch) {
-        const target = wikiMatch[1].split('|')[0].trim();
-        noteLabel = (wikiMatch[1].split('|')[1] || target).trim();
-        noteUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${target}.md`, 'Response-Entwurf');
-      } else if (noteCell) {
-        noteLabel = noteCell.replace(/\*/g, '');
-      }
-
-      items.push({
-        num: cells[0] || '',
-        priority,
-        priorityLabel: prioCell.replace(/[🔴🟠🟡⚪]/g, '').trim(),
-        topic: topic.replace(/\*/g, ''),
-        action: action.replace(/\*/g, ''),
-        noteUrl,
-        noteLabel,
-      });
+  const groups = [];
+  let totalCount = 0;
+  for (const p of prioDefs) {
+    const section = body.match(p.regex);
+    if (!section) continue;
+    const items = parseTriageTable(section[1], p.level, dateDir);
+    if (items.length) {
+      groups.push({ level: p.level, emoji: p.emoji, label: p.label, items });
+      if (p.level === 'kritisch' || p.level === 'hoch') totalCount += items.length;
     }
   }
 
+  // Sofort-Actions
   const sofortActions = [];
-  const sofortRegex = /##\s+Sofort-?Actions?[^\n]*\n([\s\S]*?)(?=\n##\s|\n---|$)/i;
-  const sm = body.match(sofortRegex);
+  const sm = body.match(/##\s+Sofort-?Actions?[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i);
   if (sm) {
     for (const line of sm[1].split('\n')) {
       const t = line.match(/^\s*[-*]\s+\[\s\]\s+(.+)$/);
@@ -531,7 +587,7 @@ function parseTriage(md, dateDir) {
     }
   }
 
-  return { items, sofortActions };
+  return { groups, sofortActions, totalCount };
 }
 
 // ---------- Weekly Review Tasks (letzte 3) ----------

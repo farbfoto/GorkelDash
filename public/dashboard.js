@@ -253,32 +253,101 @@ async function loadTriage() {
   }
   card.hidden = false;
 
-  if (data.url && header) {
-    header.innerHTML = `📧 Email Triage <a class="obs-link" href="${data.url}" title="Index in Obsidian öffnen">↗</a>`;
-  }
+  // Header with count + Obsidian link
+  const cnt = data.totalCount ? `<span class="count">${data.totalCount}</span>` : '';
+  const obsLink = data.url
+    ? `<a class="obs-link" href="${data.url}" title="Index in Obsidian öffnen">↗</a>`
+    : '';
+  header.innerHTML = `📧 Email Triage ${cnt} ${obsLink}`;
 
-  if (data.items && data.items.length) {
-    list.innerHTML = '';
-    for (const item of data.items) {
-      const li = document.createElement('li');
-      li.className = `triage-item prio-${item.priority}`;
-      const linkHtml = item.noteUrl
-        ? `<a class="triage-note" href="${item.noteUrl}" title="Antwort-Entwurf in Obsidian öffnen">💬 ${escapeHtml(item.noteLabel || 'Entwurf')}</a>`
-        : item.noteLabel ? `<span class="triage-note-plain">${escapeHtml(item.noteLabel)}</span>` : '';
-      li.innerHTML = `
-        <span class="triage-prio">${escapeHtml(item.priorityLabel || '')}</span>
-        <div class="triage-body">
-          <div class="triage-topic">${escapeHtml(item.topic)}</div>
-          <div class="triage-action">${escapeHtml(item.action)}</div>
-          ${linkHtml}
-        </div>
-      `;
-      list.appendChild(li);
-    }
+  // Render priority groups
+  list.innerHTML = '';
+  const groups = data.groups || [];
+
+  if (!groups.length) {
+    list.innerHTML = '<div style="color:var(--text-dim);padding:10px 0;font-size:12px">Keine Priorisierung.</div>';
   } else {
-    list.innerHTML = '<li style="color:var(--text-dim)">Keine Priorisierung.</li>';
+    for (const group of groups) {
+      const collapsible = group.level === 'mittel' || group.level === 'niedrig';
+      const groupEl = document.createElement(collapsible ? 'details' : 'div');
+      groupEl.className = `triage-group level-${group.level}`;
+
+      const headerHtml = `
+        <span class="prio-emoji">${group.emoji}</span>
+        <span class="prio-label">${escapeHtml(group.label)}</span>
+        <span class="prio-count">${group.items.length}</span>`;
+
+      if (collapsible) {
+        const summary = document.createElement('summary');
+        summary.className = 'triage-group-header';
+        summary.innerHTML = headerHtml;
+        groupEl.appendChild(summary);
+      } else {
+        const head = document.createElement('div');
+        head.className = 'triage-group-header';
+        head.innerHTML = headerHtml;
+        groupEl.appendChild(head);
+      }
+
+      const ul = document.createElement('ul');
+      ul.className = 'triage-items';
+
+      for (const item of group.items) {
+        const li = document.createElement('li');
+        li.className = `triage-item lvl-${group.level}`;
+
+        if (group.level === 'kritisch' || group.level === 'hoch') {
+          const num = item.num ? `<div class="triage-num">${escapeHtml(item.num)}</div>` : '<div></div>';
+          const metaParts = [];
+          if (item.sender)   metaParts.push(escapeHtml(item.sender));
+          if (item.deadline) metaParts.push(escapeHtml(item.deadline));
+          const meta = metaParts.length ? `<div class="triage-meta">${metaParts.join(' · ')}</div>` : '';
+
+          const btns = [];
+          if (item.outlookUrl) {
+            btns.push(`<a class="triage-btn triage-btn-outlook" href="${item.outlookUrl}" target="_blank" rel="noopener" title="Email in Outlook öffnen">📧 Outlook</a>`);
+          }
+          if (item.draftUrl) {
+            btns.push(`<a class="triage-btn triage-btn-draft" href="${item.draftUrl}" title="Antwort-Entwurf in Obsidian">💬 Entwurf</a>`);
+          }
+          const actions = btns.length ? `<div class="triage-actions">${btns.join('')}</div>` : '';
+
+          const desc = item.description
+            ? `<div class="triage-desc">${escapeHtml(truncate(item.description, 160))}</div>`
+            : '';
+          li.innerHTML = `
+            ${num}
+            <div class="triage-body">
+              <div class="triage-topic">${escapeHtml(item.topic)}</div>
+              ${desc}
+              ${meta}
+              ${actions}
+            </div>`;
+        } else if (group.level === 'mittel') {
+          const metaParts = [];
+          if (item.sender)  metaParts.push(escapeHtml(item.sender));
+          if (item.context) metaParts.push(escapeHtml(truncate(item.context, 160)));
+          li.innerHTML = `
+            <div class="triage-body">
+              <div class="triage-topic">${escapeHtml(item.topic)}</div>
+              ${metaParts.length ? `<div class="triage-meta">${metaParts.join(' · ')}</div>` : ''}
+            </div>`;
+        } else { // niedrig
+          li.innerHTML = `
+            <div class="triage-body">
+              <div class="triage-topic">${escapeHtml(item.topic)}</div>
+              ${item.info ? `<div class="triage-meta">${escapeHtml(truncate(item.info, 160))}</div>` : ''}
+            </div>`;
+        }
+
+        ul.appendChild(li);
+      }
+      groupEl.appendChild(ul);
+      list.appendChild(groupEl);
+    }
   }
 
+  // Sofort-Actions
   if (data.sofortActions && data.sofortActions.length) {
     actionsWrap.hidden = false;
     actionsList.innerHTML = data.sofortActions.map(a => `<li>☐ ${escapeHtml(a)}</li>`).join('');
