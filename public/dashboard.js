@@ -4,6 +4,15 @@ const WOCHENTAGE = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freit
 function fmtDate(d) {
   return `${WOCHENTAGE[d.getDay()]}, ${d.getDate()}. ${MONATE[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+// Lokales Datum als YYYY-MM-DD — konsistent mit server.js dateStr()
+// Bewusst NICHT toISOString() — das gibt UTC zurück (falsch in CEST zwischen 00:00–01:59)
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 function fmtShort(s) {
   const [y,m,dd] = s.split('-');
   return `${dd}.${m}.`;
@@ -115,7 +124,7 @@ async function loadToday() {
 }
 
 async function loadBriefing() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateStr(new Date());
   const data = await fetchJSON(`/api/briefing?date=${today}`);
   const weather = document.getElementById('weather-pill');
   const overview = document.getElementById('overview-callout');
@@ -185,7 +194,7 @@ async function loadBriefing() {
 // ---------- Hero: Tech Briefing ----------
 
 async function loadTechBriefing() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateStr(new Date());
   const data = await fetchJSON(`/api/tech-briefing?date=${today}`);
   const hero = document.getElementById('tech-briefing');
   if (!data.exists) { hero.hidden = true; return; }
@@ -249,7 +258,7 @@ async function loadTechBriefing() {
 // ---------- Column 1 Extra: Email Triage ----------
 
 async function loadTriage() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateStr(new Date());
   const data = await fetchJSON(`/api/triage?date=${today}`);
   const card = document.getElementById('triage-card');
   const list = document.getElementById('triage-list');
@@ -392,7 +401,7 @@ let _activeTab = 'today';
 function tomorrowDateStr() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
 
 function renderTomorrowAppointments(appointments, listEl) {
