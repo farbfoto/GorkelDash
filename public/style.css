@@ -1058,6 +1058,216 @@ pre {
 }
 
 /* ============================================================
+   Emails View (Stufe 2)
+   ============================================================ */
+.emails-container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.emails-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.emails-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.emails-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.emails-meta strong { color: var(--text); font-weight: 600; }
+.emails-datestr { font-weight: 500; }
+
+.emails-filters {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+}
+.email-filter {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 5px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.email-filter:hover { color: var(--text); }
+.email-filter.active {
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.emails-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.email-group { display: flex; flex-direction: column; gap: 10px; }
+
+.email-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 2px 4px;
+}
+.email-group.level-kritisch .email-group-header { color: var(--red); }
+.email-group.level-hoch     .email-group-header { color: var(--orange); }
+
+/* Cards for KRITISCH / HOCH */
+.email-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--bg-elevated);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.email-card.lvl-kritisch { border-left-color: var(--red); }
+.email-card.lvl-hoch     { border-left-color: var(--orange); }
+
+.email-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.email-card-num {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.email-card.lvl-kritisch .email-card-num { background: rgba(255,69,58,0.15); color: var(--red); }
+.email-card.lvl-hoch     .email-card-num { background: rgba(255,159,10,0.15); color: var(--orange); }
+
+.email-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.email-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.email-card-meta .meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.email-card-meta .meta-icon { color: var(--text-faint); }
+
+.email-card-summary {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+.email-card-summary p { margin: 0 0 6px; }
+.email-card-summary p:last-child { margin-bottom: 0; }
+
+.email-card-tasks {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.email-card-tasks-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.email-card-tasks ul { list-style: none; }
+.email-card-tasks li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.email-card-tasks li.done { color: var(--text-dim); text-decoration: line-through; }
+.email-card-tasks .check { color: var(--green); font-size: 13px; }
+.email-card-tasks li.done .check { color: var(--text-faint); }
+
+.email-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.email-card-actions .triage-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+.email-card-actions .triage-btn-note {
+  color: var(--text-dim);
+  border-color: var(--border-mid);
+}
+.email-card-actions .triage-btn-note:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+/* Compact list for MITTEL / NIEDRIG in emails tab */
+.email-index-list {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 4px 16px;
+  list-style: none;
+}
+.email-index-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.email-index-list li:first-child { border-top: none; }
+.email-index-topic { font-weight: 500; color: var(--text); margin-bottom: 2px; }
+.email-index-meta { font-size: 11px; color: var(--text-faint); }
+
+/* ============================================================
    Responsive
    ============================================================ */
 @media (max-width: 1100px) {

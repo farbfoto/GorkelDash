@@ -491,6 +491,31 @@ function extractOutlookUrl(noteContent) {
   return urlMatch ? urlMatch[1] : null;
 }
 
+// Stripped, single-paragraph summary from "## Zusammenfassung"
+function extractSummary(noteContent) {
+  if (!noteContent) return '';
+  const m = noteContent.match(/##\s+Zusammenfassung[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/);
+  if (!m) return '';
+  return m[1]
+    .replace(/\*\*/g, '')
+    .replace(/\[\[([^\]]+)\]\]/g, (_, inner) => (inner.split('|')[1] || inner.split('|')[0]).trim())
+    .trim();
+}
+
+// Open + done tasks from "## Offene Punkte" (or fallback: anywhere in note)
+function extractNoteTasks(noteContent) {
+  if (!noteContent) return { open: [], done: [] };
+  const section = noteContent.match(/##\s+(?:Offene Punkte|Tasks|Aufgaben|Action Items)[^\n]*\n([\s\S]*?)(?=\n##\s|\n---\s*$|$)/i);
+  const scanIn = section ? section[1] : noteContent;
+  const open = [], done = [];
+  for (const line of scanIn.split('\n')) {
+    const m = line.match(/^\s*[-*]\s+\[([ x])\]\s+(.+)$/);
+    if (!m) continue;
+    (m[1] === 'x' ? done : open).push(cleanTaskText(m[2]));
+  }
+  return { open, done };
+}
+
 function parseTriageTable(tableMd, level, dateDir) {
   const rows = tableMd.split('\n').filter(l => l.trim().startsWith('|'));
   const items = [];
@@ -525,10 +550,14 @@ function parseTriageTable(tableMd, level, dateDir) {
         item.noteName = target;
         item.noteUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${target}.md`);
         item.draftUrl = obsidianUrlPath(`${INBOX_REL}/${dateDir}/${target}.md`, 'Antwort-Entwurf');
-        // Load individual note for Outlook URL
+        // Load individual note for Outlook URL + summary + tasks
         try {
           const noteContent = fs.readFileSync(path.join(INBOX_DIR, dateDir, `${target}.md`), 'utf8');
           item.outlookUrl = extractOutlookUrl(noteContent);
+          item.summary = extractSummary(noteContent);
+          const t = extractNoteTasks(noteContent);
+          item.openTasks = t.open;
+          item.doneTasks = t.done;
         } catch {}
       }
       const thema = cleanCellText(cells[2]);

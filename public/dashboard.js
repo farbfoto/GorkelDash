@@ -581,6 +581,163 @@ async function loadTomorrow() {
   }
 }
 
+// ---------- Emails View (Stufe 2) ----------
+
+let _emailFilter = 'all';
+let _emailsLastData = null;
+
+function renderEmails(data) {
+  const groupsEl = document.getElementById('emails-groups');
+  const emptyEl = document.getElementById('emails-empty');
+  groupsEl.innerHTML = '';
+
+  if (!data || !data.exists) {
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+
+  // Date + count + index link
+  const d = new Date((data.date || localDateStr(new Date())) + 'T00:00:00');
+  document.getElementById('emails-date').textContent = fmtDate(d);
+  document.getElementById('emails-total').textContent = data.totalCount || 0;
+  const obs = document.getElementById('emails-obs-link');
+  if (obs && data.url) obs.href = data.url;
+
+  const groups = data.groups || [];
+
+  for (const group of groups) {
+    // Filter
+    if (_emailFilter === 'kritisch' && group.level !== 'kritisch') continue;
+    if (_emailFilter === 'hoch'     && group.level !== 'hoch')     continue;
+    if (_emailFilter === 'indexonly' && (group.level === 'kritisch' || group.level === 'hoch')) continue;
+    if (_emailFilter === 'all') { /* show all */ }
+
+    if (!group.items.length) continue;
+
+    const groupEl = document.createElement('section');
+    groupEl.className = `email-group level-${group.level}`;
+
+    const head = document.createElement('div');
+    head.className = 'email-group-header';
+    head.innerHTML = `<span class="prio-emoji">${group.emoji}</span> ${escapeHtml(group.label)} <span class="prio-count">${group.items.length}</span>`;
+    groupEl.appendChild(head);
+
+    if (group.level === 'kritisch' || group.level === 'hoch') {
+      // Full email cards
+      for (const item of group.items) {
+        groupEl.appendChild(renderEmailCard(item, group.level));
+      }
+    } else {
+      // Compact index list for MITTEL / NIEDRIG
+      const ul = document.createElement('ul');
+      ul.className = 'email-index-list';
+      for (const item of group.items) {
+        const li = document.createElement('li');
+        const metaParts = [];
+        if (item.sender)  metaParts.push(escapeHtml(item.sender));
+        if (item.context) metaParts.push(escapeHtml(truncate(item.context, 180)));
+        if (item.info)    metaParts.push(escapeHtml(truncate(item.info, 180)));
+        li.innerHTML = `
+          <div class="email-index-topic">${escapeHtml(item.topic)}</div>
+          ${metaParts.length ? `<div class="email-index-meta">${metaParts.join(' · ')}</div>` : ''}`;
+        ul.appendChild(li);
+      }
+      groupEl.appendChild(ul);
+    }
+
+    groupsEl.appendChild(groupEl);
+  }
+}
+
+function renderEmailCard(item, level) {
+  const card = document.createElement('article');
+  card.className = `email-card lvl-${level}`;
+
+  const num = item.num ? `<span class="email-card-num">${escapeHtml(item.num)}</span>` : '';
+  const titleHtml = `<h3 class="email-card-title">${escapeHtml(item.topic)}</h3>`;
+
+  const metaItems = [];
+  if (item.sender)   metaItems.push(`<span class="meta-item"><span class="meta-icon">👤</span> ${escapeHtml(item.sender)}</span>`);
+  if (item.deadline) metaItems.push(`<span class="meta-item"><span class="meta-icon">⏰</span> ${escapeHtml(item.deadline)}</span>`);
+  const meta = metaItems.length ? `<div class="email-card-meta">${metaItems.join('')}</div>` : '';
+
+  // Description (Thema column) — if different from title
+  const desc = item.description
+    ? `<div class="email-card-summary"><em>${escapeHtml(item.description)}</em></div>`
+    : '';
+
+  // Summary (from note ## Zusammenfassung)
+  let summaryHtml = '';
+  if (item.summary) {
+    const paragraphs = item.summary.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    summaryHtml = `<div class="email-card-summary">${paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}</div>`;
+  }
+
+  // Tasks
+  let tasksHtml = '';
+  const open = item.openTasks || [];
+  const done = item.doneTasks || [];
+  if (open.length || done.length) {
+    const openLis = open.map(t => `<li><span class="check">☐</span><span>${escapeHtml(t)}</span></li>`).join('');
+    const doneLis = done.map(t => `<li class="done"><span class="check">☑</span><span>${escapeHtml(t)}</span></li>`).join('');
+    tasksHtml = `
+      <div class="email-card-tasks">
+        <div class="email-card-tasks-title">Offene Punkte (${open.length})</div>
+        <ul>${openLis}${doneLis}</ul>
+      </div>`;
+  }
+
+  // Actions
+  const btns = [];
+  if (item.outlookUrl) btns.push(`<a class="triage-btn triage-btn-outlook" href="${item.outlookUrl}" target="_blank" rel="noopener">📧 In Outlook öffnen</a>`);
+  if (item.draftUrl)   btns.push(`<a class="triage-btn triage-btn-draft" href="${item.draftUrl}">💬 Antwort-Entwurf</a>`);
+  if (item.noteUrl)    btns.push(`<a class="triage-btn triage-btn-note" href="${item.noteUrl}">📓 Note öffnen</a>`);
+  const actions = btns.length ? `<div class="email-card-actions">${btns.join('')}</div>` : '';
+
+  card.innerHTML = `
+    <div class="email-card-head">${num}${titleHtml}</div>
+    ${meta}
+    ${desc}
+    ${summaryHtml}
+    ${tasksHtml}
+    ${actions}`;
+  return card;
+}
+
+async function loadEmails() {
+  const today = localDateStr(new Date());
+  const data = await fetchJSON(`/api/triage?date=${today}`);
+  _emailsLastData = data;
+  const tabBtn = document.getElementById('tab-emails');
+  if (!data.exists) {
+    tabBtn.disabled = true;
+    tabBtn.title = 'Keine Triage für heute';
+  } else {
+    tabBtn.disabled = false;
+    tabBtn.title = '';
+  }
+  renderEmails(data);
+}
+
+async function checkEmailsTab() {
+  const today = localDateStr(new Date());
+  const data = await fetchJSON(`/api/triage?date=${today}`);
+  const tabBtn = document.getElementById('tab-emails');
+  tabBtn.disabled = !data.exists;
+  tabBtn.title = data.exists ? '' : 'Keine Triage für heute';
+}
+
+// Email filter buttons
+document.querySelectorAll('.email-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.email-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _emailFilter = btn.dataset.filter;
+    if (_emailsLastData) renderEmails(_emailsLastData);
+  });
+});
+
 async function checkTomorrowTab() {
   const date = tomorrowDateStr();
   const data = await fetchJSON(`/api/day?date=${date}`);
@@ -597,9 +754,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     _activeTab = tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('view-today').hidden = (tab !== 'today');
+    document.getElementById('view-today').hidden    = (tab !== 'today');
     document.getElementById('view-tomorrow').hidden = (tab !== 'tomorrow');
+    document.getElementById('view-emails').hidden   = (tab !== 'emails');
     if (tab === 'tomorrow') loadTomorrow();
+    if (tab === 'emails')   loadEmails();
   });
 });
 
@@ -608,8 +767,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 async function refreshAll() {
   document.getElementById('today-date').textContent = fmtDate(new Date());
   const base = [loadTechBriefing(), loadToday(), loadTriage(), loadTasks(), loadStats()];
-  const extra = _activeTab === 'tomorrow' ? loadTomorrow() : checkTomorrowTab();
-  await Promise.all([...base, extra]);
+  const tmr = _activeTab === 'tomorrow' ? loadTomorrow() : checkTomorrowTab();
+  const eml = _activeTab === 'emails'   ? loadEmails()   : checkEmailsTab();
+  await Promise.all([...base, tmr, eml]);
   document.getElementById('last-updated').textContent = fmtTime(new Date());
 }
 

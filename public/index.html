@@ -15,6 +15,7 @@
   <nav class="tab-nav">
     <button class="tab-btn active" data-tab="today">Heute</button>
     <button class="tab-btn" data-tab="tomorrow" id="tab-tomorrow" disabled title="Prüfe morgige Note…">Morgen</button>
+    <button class="tab-btn" data-tab="emails" id="tab-emails" disabled title="Prüfe Email-Triage…">Emails</button>
   </nav>
   <div class="meta">
     <span id="today-date"></span>
@@ -182,6 +183,39 @@
 
   </main>
 </div><!-- #view-tomorrow -->
+
+<!-- ============================================================
+     VIEW: EMAILS
+     ============================================================ -->
+<div id="view-emails" hidden>
+  <main class="emails-container">
+
+    <div class="emails-head">
+      <div>
+        <h2 class="emails-title">📧 Email Triage</h2>
+        <div class="emails-meta">
+          <span id="emails-date" class="emails-datestr"></span>
+          <span class="dot"></span>
+          <span><strong id="emails-total">0</strong> wichtige Emails</span>
+          <a id="emails-obs-link" class="obs-link" href="#" title="Index in Obsidian öffnen">↗ Obsidian</a>
+        </div>
+      </div>
+      <div class="emails-filters">
+        <button class="email-filter active" data-filter="all">Alle</button>
+        <button class="email-filter" data-filter="kritisch">🔴 Kritisch</button>
+        <button class="email-filter" data-filter="hoch">🟠 Hoch</button>
+        <button class="email-filter" data-filter="indexonly">Übersicht</button>
+      </div>
+    </div>
+
+    <div id="emails-empty" class="tmr-empty-state" hidden>
+      <p>Keine Email-Triage für heute.</p>
+    </div>
+
+    <div id="emails-groups" class="emails-groups"></div>
+
+  </main>
+</div><!-- #view-emails -->
 
 <script src="dashboard.js"></script>
 </body>
